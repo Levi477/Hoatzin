@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use uuid::Uuid;
 
-pub type NativeFunction = Arc<dyn Fn(Vec<Value>) -> Result<Vec<Value>, String> + Sync + Send>;
+pub type NativeFunction = Arc<dyn Fn(Value) -> Result<Value, String> + Sync + Send>;
 
 #[derive(Clone)]
 pub struct Node {
@@ -42,7 +42,7 @@ impl Node {
         Self::new(name, ScriptType::JavaScript, Some(script_path), None)
     }
 
-    pub fn execute(&self, input: Vec<Value>) -> Result<Vec<Value>, String> {
+    pub fn execute(&self, input: Value) -> Result<Value, String> {
         match self.script_type {
             ScriptType::Native => {
                 if let Some(func) = &self.native_script {
