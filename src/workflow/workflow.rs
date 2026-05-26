@@ -25,9 +25,27 @@ impl Workflow {
             nodes_map.insert(node.id.clone(), node);
         }
 
-        let mut edges_map: HashMap<String, Edge> = HashMap::new();
         let mut adj_list: HashMap<String, Vec<String>> = HashMap::new();
         let mut rev_adj_list: HashMap<String, Vec<String>> = HashMap::new();
+        let mut edges_map: HashMap<String, Edge> = HashMap::new();
+
+        for edge in edges {
+            let edge_id = edge.id.clone();
+            let from_node_id = edge.from_node_id.clone();
+            let to_node_id = edge.to_node_id.clone();
+
+            adj_list
+                .entry(from_node_id.clone())
+                .or_insert_with(Vec::new)
+                .push(edge_id.clone());
+
+            rev_adj_list
+                .entry(to_node_id.clone())
+                .or_insert_with(Vec::new)
+                .push(edge_id.clone());
+
+            edges_map.insert(edge.id.clone(), edge);
+        }
 
         Self {
             id: Uuid::new_v4().simple().to_string(),
