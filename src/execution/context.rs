@@ -99,7 +99,7 @@ impl ExecutionContext {
         indegree
     }
 
-    fn save_node_output(&mut self, front_node_id: &str, node_op: Result<Value, String>) {
+    fn save_node_output(&mut self, front_node_id: &String, node_op: Result<Value, String>) {
         self.node_outputs.insert(
             front_node_id.clone(),
             NodeOutput {
