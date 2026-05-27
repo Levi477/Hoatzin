@@ -19,7 +19,7 @@ Here is a practical example of how Hoatzin handles a staggered **E-Commerce Orde
 
 This workflow demonstrates **Fan-Out** (running payment and inventory checks simultaneously) and **Fan-In** (waiting for both to finish before dispatching).
 
-### The Workflow Flow
+### The Workflow 
 ```text
                            [ Node 1: receive_order ]
                            (Trigger: Outputs Order Data)
@@ -110,7 +110,7 @@ async fn main() {
 
 Hoatzin is actively evolving from an embedded library into a full-fledged orchestration platform.
 
-### 1. Declarative Workflows (TOML/YAML)
+### 1. Declarative Workflow TOML
 
 Writing workflows in pure Rust is fast, but recompiling for every structural change is slow. We are implementing a TOML parser to allow for fully declarative workflow definitions.
 
