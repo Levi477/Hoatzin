@@ -6,23 +6,22 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 
 /*
-                            [ Node 1: receive_order ]
-                            (Trigger: Outputs Order Data)
-                                /                   \
-                      edge1    /                     \   edge2
-                              /                       \
-                             v                         v
-            [ Node 2: process_payment ]      [ Node 3: check_inventory ]
-            (Reads 'amount' from Node 1)     (Reads 'item' from Node 1)
-                             \                         /
-                      edge3   \                       /   edge4
-                               \                     /
-                                v                   v
-                           [ Node 4: dispatch_order ]
-                 (Waits for BOTH Node 2 and Node 3 to complete)
+                           [ Node 1: receive_order ]
+                           (Trigger: Outputs Order Data)
+                               /                   \
+                     edge1    /                     \   edge2
+                             /                       \
+                            v                         v
+           [ Node 2: process_payment ]      [ Node 3: check_inventory ]
+           (Reads 'amount' from Node 1)     (Reads 'item' from Node 1)
+                            \                         /
+                     edge3   \                       /   edge4
+                              \                     /
+                               v                   v
+                          [ Node 4: dispatch_order ]
+                (Waits for BOTH Node 2 and Node 3 to complete)
 
- */
-
+*/
 
 // ==========================================
 // 1. Trigger Node
@@ -84,7 +83,7 @@ fn dispatch_order(input: Value) -> Result<Value, String> {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() {
     // ---------------------------------------------------------
     // STEP 1: Create the Nodes
@@ -114,5 +113,5 @@ async fn main() {
     );
 
     let mut execution_context = ExecutionContext::new(Arc::new(workflow));
-    execution_context.run_workflow();
+    execution_context.run_workflow().await;
 }

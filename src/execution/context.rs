@@ -1,14 +1,13 @@
 use crate::{
-    execution::{node_output::NodeOutput, node_status::NodeStatus},
-    node::node::Node,
+    execution::{helper::execute_node, node_output::NodeOutput, node_status::NodeStatus},
     workflow::workflow::Workflow,
 };
 use serde_json::{Map, Value, json};
 use std::{
     collections::{HashMap, VecDeque},
-    process::Output,
     sync::Arc,
 };
+use tokio::task::JoinSet;
 use uuid::Uuid;
 
 pub struct ExecutionContext {
@@ -64,29 +63,6 @@ impl ExecutionContext {
         Value::Object(ctx_map)
     }
 
-    fn execute_node(&self, ctx: &Value, front_node_id: &str) -> Result<Value, String> {
-        println!(
-            "Executing Node with ID {} with input : {:#?}",
-            &front_node_id, &ctx
-        );
-        let node_output = self
-            .workflow
-            .nodes
-            .get(front_node_id)
-            .unwrap()
-            .execute(ctx.clone());
-
-        match &node_output {
-            Ok(op) => {
-                println!("Success - Output for Node {} : {:#?}", front_node_id, &op);
-            }
-            Err(e) => {
-                println!("Error - Output for Node {} : {:#?}", front_node_id, &e);
-            }
-        }
-        node_output
-    }
-
     fn make_indegree_vec(&self) -> HashMap<String, usize> {
         let mut indegree: HashMap<String, usize> = HashMap::new();
 
@@ -108,40 +84,53 @@ impl ExecutionContext {
         );
     }
 
-    pub fn run_workflow(&mut self) {
+    pub async fn run_workflow(&mut self) {
         // run kahn's algorithm for execution of nodes
         // use adjacency list to track incoming edges count
         // store node id to indegree
         let mut indegree = self.make_indegree_vec();
 
         // global queue for nodes to be executed
-        let mut queue: VecDeque<String> = VecDeque::new();
+        let mut ready_queue: VecDeque<String> = VecDeque::new();
 
         // find starting node with 0 indegree
         for (node_id, indegree_count) in &indegree {
             if (*indegree_count) == 0 {
-                queue.push_back(node_id.clone());
+                ready_queue.push_back(node_id.clone());
             }
         }
 
-        while let Some(front_node_id) = queue.pop_front() {
-            //prepare input context to be passed
-            let ctx = self.make_input_context(&front_node_id);
-            // execute front node and save it's output
-            let node_op = self.execute_node(&ctx, &front_node_id);
-            // add node output to the history
-            self.save_node_output(&front_node_id, node_op);
-            // reduce indegrees of connected nodes
-            if let Some(outgoing_edges) = self.workflow.adjacency_list.get(&front_node_id) {
-                for edge_id in outgoing_edges {
-                    // Hop through the edge to find the target Node ID
-                    let edge = self.workflow.edges.get(edge_id).unwrap();
-                    let target_node_id = &edge.to_node_id;
+        // init joinset for parallel execution
+        let mut join_set = JoinSet::new();
 
-                    if let Some(count) = indegree.get_mut(target_node_id) {
-                        *count -= 1;
-                        if *count == 0 {
-                            queue.push_back(target_node_id.clone());
+        while !ready_queue.is_empty() || !join_set.is_empty() {
+            // keep executing nodes from queue
+            while let Some(front_node_id) = ready_queue.pop_front() {
+                //prepare input context and node object to be passed
+                let ctx = self.make_input_context(&front_node_id);
+                let node = self.workflow.nodes.get(&front_node_id).unwrap();
+                let thread_node_id = front_node_id.clone();
+
+                // start running the node in a new thread
+                join_set.spawn(execute_node(node.clone(), ctx, thread_node_id));
+            }
+
+            // wait for output for executed nodes
+            if let Some(result) = join_set.join_next().await {
+                let (node_id, node_op) = result.unwrap();
+                // add node output to the history
+                self.save_node_output(&node_id, node_op);
+                // reduce indegrees of connected nodes
+                if let Some(outgoing_edges) = self.workflow.adjacency_list.get(&node_id) {
+                    for edge_id in outgoing_edges {
+                        // Hop through the edge to find the target Node ID
+                        let edge = self.workflow.edges.get(edge_id).unwrap();
+                        let target_node_id = &edge.to_node_id;
+                        if let Some(count) = indegree.get_mut(target_node_id) {
+                            *count -= 1;
+                            if *count == 0 {
+                                ready_queue.push_back(target_node_id.clone());
+                            }
                         }
                     }
                 }
