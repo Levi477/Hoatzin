@@ -3,8 +3,8 @@ use pyo3::{
     Python,
     types::{PyAnyMethods, PyDict, PyDictMethods},
 };
-use serde_json::{Value, json};
-use std::{ffi::CString, str::FromStr, sync::Arc};
+use serde_json::Value;
+use std::{ffi::CString, path::PathBuf, str::FromStr, sync::Arc};
 use tokio::fs;
 use uuid::Uuid;
 
@@ -15,7 +15,7 @@ pub struct Node {
     pub id: String,
     pub name: String,
     pub script_type: ScriptType,
-    pub script_path: Option<String>,
+    pub script_path: Option<PathBuf>,
     pub native_script: Option<NativeFunction>,
 }
 
@@ -23,7 +23,7 @@ impl Node {
     fn new(
         name: String,
         script_type: ScriptType,
-        script_path: Option<String>,
+        script_path: Option<PathBuf>,
         native_script: Option<NativeFunction>,
     ) -> Self {
         Self {
@@ -39,11 +39,11 @@ impl Node {
         Self::new(name, ScriptType::Native, None, Some(native_script))
     }
 
-    pub fn new_python_node(name: String, script_path: String) -> Self {
+    pub fn new_python_node(name: String, script_path: PathBuf) -> Self {
         Self::new(name, ScriptType::Python, Some(script_path), None)
     }
 
-    pub fn new_javascript_node(name: String, script_path: String) -> Self {
+    pub fn new_javascript_node(name: String, script_path: PathBuf) -> Self {
         Self::new(name, ScriptType::JavaScript, Some(script_path), None)
     }
 
@@ -99,7 +99,8 @@ except Exception as e:
                         &CString::from_str(&code).unwrap(),
                         Some(&locals),
                         Some(&locals),
-                    );
+                    )
+                    .unwrap();
 
                     // extract output string
                     let output_str: String = locals
