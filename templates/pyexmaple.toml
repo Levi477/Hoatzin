@@ -1,0 +1,25 @@
+[workflow]
+name = "Exmaple"
+
+[[nodes]]
+name = "node1"
+script_type = "Python"
+script_path = "/Users/levi/Desktop/hoatzin/local-test/node1.py"
+
+[[nodes]]
+name = "node2"
+script_type = "Python"
+script_path = "/Users/levi/Desktop/hoatzin/local-test/node2.py"
+
+[[nodes]]
+name = "node3"
+script_type = "Python"
+script_path = "/Users/levi/Desktop/hoatzin/local-test/node3.py"
+
+[[edges]]
+from_node = "node1"
+to_node = "node2"
+
+[[edges]]
+from_node = "node3"
+to_node = "node2"
