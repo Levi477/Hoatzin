@@ -1,6 +1,7 @@
 mod edge;
 mod execution;
 mod node;
+mod template;
 mod workflow;
 
 #[tokio::main(flavor = "multi_thread")]
