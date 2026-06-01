@@ -70,20 +70,20 @@ script_path = "scripts/dispatch_order.py"
 
 # Define Edges
 [[edges]]
-from = "receive_order"
-to = "process_payment"
+from_node = "receive_order"
+to_node = "process_payment"
 
 [[edges]]
-from = "receive_order"
-to = "check_inventory"
+from_node = "receive_order"
+to_node = "check_inventory"
 
 [[edges]]
-from = "process_payment"
-to = "dispatch_order"
+from_node = "process_payment"
+to_node = "dispatch_order"
 
 [[edges]]
-from = "check_inventory"
-to = "dispatch_order"
+from_node = "check_inventory"
+to_node = "dispatch_order"
 
 
 ```
