@@ -43,11 +43,13 @@ Write a `workflow.toml` file:
 ```toml
 [workflow]
 name = "E-Commerce Pipeline"
+description = "Workflow Description here"
 
 [[nodes]]
 name = "receive_order"
 script_type = "Python"
 script_path = "scripts/receive_order.py"
+description = "Node Description here"
 
 [[nodes]]
 name = "process_payment"
@@ -111,11 +113,11 @@ fn process_payment(input: Value) -> Result<Value, String> {
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
-    let n1 = Node::new_native_node("receive_order".into(), Arc::new(receive_order));
-    let n2 = Node::new_native_node("process_payment".into(), Arc::new(process_payment));
+    let n1 = Node::new_native_node("receive_order".into(), Some("Node Description".to_string()),Arc::new(receive_order));
+    let n2 = Node::new_native_node("process_payment".into(), None,Arc::new(process_payment));
 
     let edges = vec![Edge::new(&n1, &n2, None)];
-    let workflow = Workflow::new(vec![n1, n2], edges);
+    let workflow = Workflow::new(vec![n1, n2], edges,"Enter your description here".to_String());
 
     let mut ctx = ExecutionContext::new(Arc::new(workflow));
     ctx.run_workflow().await;
