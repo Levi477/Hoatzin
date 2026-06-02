@@ -14,6 +14,7 @@ pub type NativeFunction = Arc<dyn Fn(Value) -> Result<Value, String> + Sync + Se
 pub struct Node {
     pub id: String,
     pub name: String,
+    pub description: Option<String>,
     pub script_type: ScriptType,
     pub script_path: Option<PathBuf>,
     pub native_script: Option<NativeFunction>,
@@ -22,6 +23,7 @@ pub struct Node {
 impl Node {
     fn new(
         name: String,
+        description: Option<String>,
         script_type: ScriptType,
         script_path: Option<PathBuf>,
         native_script: Option<NativeFunction>,
@@ -29,22 +31,53 @@ impl Node {
         Self {
             id: Uuid::new_v4().simple().to_string(),
             name,
+            description,
             script_type,
             script_path,
             native_script,
         }
     }
 
-    pub fn new_native_node(name: String, native_script: NativeFunction) -> Self {
-        Self::new(name, ScriptType::Native, None, Some(native_script))
+    pub fn new_native_node(
+        name: String,
+        description: Option<String>,
+        native_script: NativeFunction,
+    ) -> Self {
+        Self::new(
+            name,
+            description,
+            ScriptType::Native,
+            None,
+            Some(native_script),
+        )
     }
 
-    pub fn new_python_node(name: String, script_path: PathBuf) -> Self {
-        Self::new(name, ScriptType::Python, Some(script_path), None)
+    pub fn new_python_node(
+        name: String,
+        description: Option<String>,
+        script_path: PathBuf,
+    ) -> Self {
+        Self::new(
+            name,
+            description,
+            ScriptType::Python,
+            Some(script_path),
+            None,
+        )
     }
 
-    pub fn new_javascript_node(name: String, script_path: PathBuf) -> Self {
-        Self::new(name, ScriptType::JavaScript, Some(script_path), None)
+    pub fn new_javascript_node(
+        name: String,
+        description: Option<String>,
+        script_path: PathBuf,
+    ) -> Self {
+        Self::new(
+            name,
+            description,
+            ScriptType::JavaScript,
+            Some(script_path),
+            None,
+        )
     }
 
     pub async fn execute(&self, input: Value) -> Result<Value, String> {
