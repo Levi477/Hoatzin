@@ -7,6 +7,8 @@ use uuid::Uuid;
 // All executions can read this workflow wrapped in Arc<>
 pub struct Workflow {
     pub id: String,
+    pub name: String,
+    pub description: String,
     // Map Node ID to Node
     pub nodes: HashMap<String, Node>,
     // Map Edge ID to Edge
@@ -19,7 +21,7 @@ pub struct Workflow {
 
 impl Workflow {
     // Take a list of Nodes and Edges as input to build adjacency list and reverse adjacency list
-    pub fn new(nodes: Vec<Node>, edges: Vec<Edge>) -> Self {
+    pub fn new(nodes: Vec<Node>, edges: Vec<Edge>, name: String, description: String) -> Self {
         let mut nodes_map: HashMap<String, Node> = HashMap::new();
         for node in nodes {
             nodes_map.insert(node.id.clone(), node);
@@ -49,6 +51,8 @@ impl Workflow {
 
         Self {
             id: Uuid::new_v4().simple().to_string(),
+            name,
+            description,
             nodes: nodes_map,
             edges: edges_map,
             adjacency_list: adj_list,
