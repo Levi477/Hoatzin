@@ -1,0 +1,37 @@
+[workflow]
+name = "High-Performance Video Upscaler"
+
+[[nodes]]
+name = "extract_audio"
+script_type = "Python"
+script_path = "template-scripts/video_upscaler/extract_audio.py"
+
+[[nodes]]
+name = "extract_frames"
+script_type = "Python"
+script_path = "template-scripts/video_upscaler/extract_frames.py"
+
+
+[[nodes]]
+name = "upscale_frames"
+script_type = "Python"
+script_path = "template-scripts/video_upscaler/upscale_frames.py"
+
+
+[[nodes]]
+name = "merge_output"
+script_type = "Python"
+script_path = "template-scripts/video_upscaler/merge_output.py"
+
+
+[[edges]]
+from_node = "extract_frames"
+to_node = "upscale_frames"
+
+[[edges]]
+from_node = "extract_audio"
+to_node = "merge_output"
+
+[[edges]]
+from_node = "upscale_frames"
+to_node = "merge_output"

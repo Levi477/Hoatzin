@@ -1,0 +1,25 @@
+[workflow]
+name = "ML Dataset Acquisition & Training"
+
+[[nodes]]
+name = "acquire_dataset"
+script_type = "Python"
+script_path = "template-scripts/ml_pipeline/acquire_dataset.py"
+
+[[nodes]]
+name = "preprocess_data"
+script_type = "Python"
+script_path = "template-scripts/ml_pipeline/preprocess_data.py"
+
+[[nodes]]
+name = "train_model"
+script_type = "Python"
+script_path = "template-scripts/ml_pipeline/train_model.py"
+
+[[edges]]
+from_node = "acquire_dataset"
+to_node = "preprocess_data"
+
+[[edges]]
+from_node = "preprocess_data"
+to_node = "train_model"
