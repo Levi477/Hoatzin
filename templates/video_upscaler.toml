@@ -1,10 +1,12 @@
 [workflow]
-name = "High-Performance Video Upscaler"
+name = "video upscaler"
+description = "High-Performance Video Upscaler"
 
 [[nodes]]
 name = "extract_audio"
 script_type = "Python"
 script_path = "template-scripts/video_upscaler/extract_audio.py"
+description = "This node will extract audio in the first step "
 
 [[nodes]]
 name = "extract_frames"

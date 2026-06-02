@@ -10,6 +10,7 @@ use crate::{
 };
 
 mod args;
+mod db;
 mod edge;
 mod execution;
 mod node;

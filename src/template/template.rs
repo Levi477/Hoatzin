@@ -14,11 +14,13 @@ pub struct WorkflowTOML {
 #[derive(Deserialize, Debug)]
 pub struct WorkflowMeta {
     pub name: String,
+    pub description: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct NodeTOML {
     pub name: String,
+    pub description: Option<String>,
     pub script_type: String,
     pub script_path: PathBuf,
 }

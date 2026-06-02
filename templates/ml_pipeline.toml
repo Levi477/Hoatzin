@@ -1,5 +1,6 @@
 [workflow]
-name = "ML Dataset Acquisition & Training"
+name = "ML Pipeline"
+description = "ML Dataset Acquisition & Training"
 
 [[nodes]]
 name = "acquire_dataset"

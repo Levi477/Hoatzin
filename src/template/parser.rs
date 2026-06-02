@@ -21,10 +21,16 @@ pub async fn parse_workflow_from_toml(workflow_toml_file: PathBuf) -> Result<Wor
     // Instantiate the Nodes
     for node_config in config.nodes {
         let node = match node_config.script_type.as_str() {
-            "Python" => Node::new_python_node(node_config.name.clone(), node_config.script_path),
-            "JavaScript" => {
-                Node::new_javascript_node(node_config.name.clone(), node_config.script_path)
-            }
+            "Python" => Node::new_python_node(
+                node_config.name.clone(),
+                node_config.description,
+                node_config.script_path,
+            ),
+            "JavaScript" => Node::new_javascript_node(
+                node_config.name.clone(),
+                node_config.description,
+                node_config.script_path,
+            ),
             _ => {
                 return Err(format!(
                     "Unsupported script type: {}",
@@ -57,7 +63,12 @@ pub async fn parse_workflow_from_toml(workflow_toml_file: PathBuf) -> Result<Wor
     }
 
     // Build the final workflow
-    let workflow = Workflow::new(engine_nodes, engine_edges);
+    let workflow = Workflow::new(
+        engine_nodes,
+        engine_edges,
+        config.workflow.name,
+        config.workflow.description,
+    );
 
     Ok(workflow)
 }
