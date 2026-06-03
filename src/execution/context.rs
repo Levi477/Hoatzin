@@ -84,12 +84,20 @@ impl ExecutionContext {
         );
     }
 
+    fn init_node_status(&mut self) {
+        for node_id in self.workflow.nodes.keys() {
+            self.node_status
+                .insert(node_id.clone(), NodeStatus::Pending);
+        }
+    }
+
     pub async fn run_workflow(&mut self) {
         // run kahn's algorithm for execution of nodes
         // use adjacency list to track incoming edges count
         // store node id to indegree
         let mut indegree = self.make_indegree_vec();
-
+        // initialize all node status
+        self.init_node_status();
         // global queue for nodes to be executed
         let mut ready_queue: VecDeque<String> = VecDeque::new();
 
@@ -111,6 +119,9 @@ impl ExecutionContext {
                 let node = self.workflow.nodes.get(&front_node_id).unwrap();
                 let thread_node_id = front_node_id.clone();
 
+                //keep node status to running
+                self.node_status
+                    .insert(front_node_id.clone(), NodeStatus::Running);
                 // start running the node in a new thread
                 join_set.spawn(execute_node(node.clone(), ctx, thread_node_id));
             }
@@ -118,6 +129,15 @@ impl ExecutionContext {
             // wait for output for executed nodes
             if let Some(result) = join_set.join_next().await {
                 let (node_id, node_op) = result.unwrap();
+
+                // update status according to node_op
+                if node_op.is_ok() {
+                    self.node_status
+                        .insert(node_id.clone(), NodeStatus::Success);
+                } else {
+                    self.node_status.insert(node_id.clone(), NodeStatus::Failed);
+                }
+
                 // add node output to the history
                 self.save_node_output(&node_id, node_op);
                 // reduce indegrees of connected nodes
