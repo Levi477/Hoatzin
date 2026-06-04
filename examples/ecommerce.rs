@@ -88,10 +88,30 @@ async fn main() {
     // ---------------------------------------------------------
     // STEP 1: Create the Nodes
     // ---------------------------------------------------------
-    let node_start = Node::new_native_node("receive_order".to_string(), Arc::new(receive_order));
-    let node_pay = Node::new_native_node("process_payment".to_string(), Arc::new(process_payment));
-    let node_inv = Node::new_native_node("check_inventory".to_string(), Arc::new(check_inventory));
-    let node_end = Node::new_native_node("dispatch_order".to_string(), Arc::new(dispatch_order));
+    let node_start = Node::new_native_node(
+        "receive_order".to_string(),
+        None,
+        Arc::new(receive_order),
+        false,
+    );
+    let node_pay = Node::new_native_node(
+        "process_payment".to_string(),
+        None,
+        Arc::new(process_payment),
+        false,
+    );
+    let node_inv = Node::new_native_node(
+        "check_inventory".to_string(),
+        None,
+        Arc::new(check_inventory),
+        false,
+    );
+    let node_end = Node::new_native_node(
+        "dispatch_order".to_string(),
+        None,
+        Arc::new(dispatch_order),
+        false,
+    );
 
     // ---------------------------------------------------------
     // STEP 2: Wire the Edges
@@ -110,6 +130,8 @@ async fn main() {
     let workflow = Workflow::new(
         vec![node_start, node_pay, node_inv, node_end],
         vec![edge1, edge2, edge3, edge4],
+        "Ecommerce".to_string(),
+        "Process Order".to_string(),
     );
 
     let mut execution_context = ExecutionContext::new(Arc::new(workflow));
