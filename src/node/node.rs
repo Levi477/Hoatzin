@@ -1,4 +1,4 @@
-use crate::node::script_type::ScriptType;
+use crate::node::node_type::{NodeType, ScriptType};
 use pyo3::{
     Python,
     types::{PyAnyMethods, PyDict, PyDictMethods},
@@ -15,26 +15,16 @@ pub struct Node {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
-    pub script_type: ScriptType,
-    pub script_path: Option<PathBuf>,
-    pub native_script: Option<NativeFunction>,
+    pub node_type: NodeType,
 }
 
 impl Node {
-    fn new(
-        name: String,
-        description: Option<String>,
-        script_type: ScriptType,
-        script_path: Option<PathBuf>,
-        native_script: Option<NativeFunction>,
-    ) -> Self {
+    fn new(name: String, description: Option<String>, node_type: NodeType) -> Self {
         Self {
             id: Uuid::new_v4().simple().to_string(),
             name,
             description,
-            script_type,
-            script_path,
-            native_script,
+            node_type,
         }
     }
 
@@ -42,69 +32,91 @@ impl Node {
         name: String,
         description: Option<String>,
         native_script: NativeFunction,
+        is_conditional: bool,
     ) -> Self {
-        Self::new(
-            name,
-            description,
-            ScriptType::Native,
-            None,
-            Some(native_script),
-        )
+        if is_conditional {
+            Self::new(
+                name,
+                description,
+                NodeType::Conditional(ScriptType::Native(native_script)),
+            )
+        } else {
+            Self::new(
+                name,
+                description,
+                NodeType::Script(ScriptType::Native(native_script)),
+            )
+        }
     }
 
     pub fn new_python_node(
         name: String,
         description: Option<String>,
-        script_path: PathBuf,
+        script_path: &str,
+        is_conditional: bool,
     ) -> Self {
-        Self::new(
-            name,
-            description,
-            ScriptType::Python,
-            Some(script_path),
-            None,
-        )
+        if is_conditional {
+            Self::new(
+                name,
+                description,
+                NodeType::Conditional(ScriptType::Python(PathBuf::from_str(script_path).unwrap())),
+            )
+        } else {
+            Self::new(
+                name,
+                description,
+                NodeType::Script(ScriptType::Python(PathBuf::from_str(script_path).unwrap())),
+            )
+        }
     }
 
     pub fn new_javascript_node(
         name: String,
         description: Option<String>,
-        script_path: PathBuf,
+        script_path: &str,
+        is_conditional: bool,
     ) -> Self {
-        Self::new(
-            name,
-            description,
-            ScriptType::JavaScript,
-            Some(script_path),
-            None,
-        )
+        if is_conditional {
+            Self::new(
+                name,
+                description,
+                NodeType::Conditional(ScriptType::JavaScript(
+                    PathBuf::from_str(script_path).unwrap(),
+                )),
+            )
+        } else {
+            Self::new(
+                name,
+                description,
+                NodeType::Script(ScriptType::JavaScript(
+                    PathBuf::from_str(script_path).unwrap(),
+                )),
+            )
+        }
     }
 
     pub async fn execute(&self, input: Value) -> Result<Value, String> {
-        match self.script_type {
-            ScriptType::Native => {
-                if let Some(func) = &self.native_script {
-                    func(input)
-                } else {
-                    Err("Function Not Provided For Native Type !".to_string())
-                }
-            }
-            ScriptType::Python => {
-                let py_script_path = self.script_path.as_ref().unwrap();
-                let user_script = fs::read_to_string(py_script_path).await.unwrap();
+        match &self.node_type {
+            // run execute function for NodeType Script
+            NodeType::Script(lang) => {
+                match lang {
+                    ScriptType::Native(func) => func(input),
+                    ScriptType::Python(script_path) => {
+                        let py_script_path = script_path;
+                        let user_script = fs::read_to_string(py_script_path).await.unwrap();
 
-                let input_json = serde_json::to_string(&input).unwrap();
+                        let input_json = serde_json::to_string(&input).unwrap();
 
-                Python::attach(|py| -> Result<Value, String> {
-                    // make a space for new dictionary in python memory to add input json to it
-                    let locals = PyDict::new(py);
-                    // add input json to the variable rust_input_json in python
-                    locals
-                        .set_item("rust_input_json", input_json)
-                        .map_err(|e| e.to_string())?;
-                    //wrapper code to be passed to python
-                    let code = format!(
-                        r#"
+                        Python::attach(|py| -> Result<Value, String> {
+                            // make a space for new dictionary in python memory to add input json to it
+                            let locals = PyDict::new(py);
+                            // add input json to the variable rust_input_json in python
+                            locals
+                                .set_item("rust_input_json", input_json)
+                                .map_err(|e| e.to_string())?;
+                            //wrapper code to be passed to python
+                            let code = format!(
+                                r#"
 import asyncio
 import inspect
 import json
@@ -124,31 +136,37 @@ try:
 except Exception as e:
     rust_output_json = json.dumps({{"error": str(e)}})
 "#,
-                        user_script
-                    );
+                                user_script
+                            );
 
-                    // execute python script and get output
-                    py.run(
-                        &CString::from_str(&code).unwrap(),
-                        Some(&locals),
-                        Some(&locals),
-                    )
-                    .unwrap();
+                            // execute python script and get output
+                            py.run(
+                                &CString::from_str(&code).unwrap(),
+                                Some(&locals),
+                                Some(&locals),
+                            )
+                            .unwrap();
 
-                    // extract output string
-                    let output_str: String = locals
-                        .get_item("rust_output_json")
-                        .unwrap()
-                        .unwrap()
-                        .extract()
-                        .unwrap();
+                            // extract output string
+                            let output_str: String = locals
+                                .get_item("rust_output_json")
+                                .unwrap()
+                                .unwrap()
+                                .extract()
+                                .unwrap();
 
-                    let output_value: Value = serde_json::from_str(&output_str).unwrap();
+                            let output_value: Value = serde_json::from_str(&output_str).unwrap();
 
-                    return Ok(output_value);
-                })
+                            return Ok(output_value);
+                        })
+                    }
+                    _ => Err("Script Type Not Supported Yet !".to_string()),
+                }
             }
-            _ => Err("Script Type Not Supported Yet !".to_string()),
+            // run route function for NodeType Conditional
+            // check for the parameter __route__ in this node's output
+            // compare each edges labels with __route__ and conditional skip other branches
+            NodeType::Conditional(lang) => Err("Conditional Type not yet implemented".to_string()),
         }
     }
 }

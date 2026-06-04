@@ -1,2 +1,2 @@
 pub mod node;
-pub mod script_type;
+pub mod node_type;
