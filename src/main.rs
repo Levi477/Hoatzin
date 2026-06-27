@@ -31,6 +31,7 @@ async fn main() {
 
         // check if the file is .toml format
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("toml") {
+            // if valid .toml then read content
             match parse_workflow_from_toml(path.to_path_buf()).await {
                 Ok(workflow) => {
                     println!("Spawning workflow from path : {}", path.to_str().unwrap());

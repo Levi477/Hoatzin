@@ -7,28 +7,21 @@ name = "extract_audio"
 script_type = "Python"
 script_path = "template-scripts/video_upscaler/extract_audio.py"
 description = "This node will extract audio in the first step "
-is_conditional = false
 
 [[nodes]]
 name = "extract_frames"
 script_type = "Python"
 script_path = "template-scripts/video_upscaler/extract_frames.py"
-is_conditional = false
-
 
 [[nodes]]
 name = "upscale_frames"
 script_type = "Python"
 script_path = "template-scripts/video_upscaler/upscale_frames.py"
-is_conditional = false
-
 
 [[nodes]]
 name = "merge_output"
 script_type = "Python"
 script_path = "template-scripts/video_upscaler/merge_output.py"
-is_conditional = false
-
 
 [[edges]]
 from_node = "extract_frames"

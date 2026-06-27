@@ -137,29 +137,18 @@ fn finalize_audit(input: Value) -> Result<Value, String> {
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
-    let n1 = Node::new_native_node("init_transfer".into(), None, Arc::new(init_transfer), false);
-    let n2 = Node::new_native_node("check_kyc".into(), None, Arc::new(check_kyc), false);
-    let n3 = Node::new_native_node("ml_fraud".into(), None, Arc::new(ml_fraud), false);
-    let n4 = Node::new_native_node("lock_funds".into(), None, Arc::new(lock_funds), false);
+    let n1 = Node::new_native_node("init_transfer".into(), None, Arc::new(init_transfer));
+    let n2 = Node::new_native_node("check_kyc".into(), None, Arc::new(check_kyc));
+    let n3 = Node::new_native_node("ml_fraud".into(), None, Arc::new(ml_fraud));
+    let n4 = Node::new_native_node("lock_funds".into(), None, Arc::new(lock_funds));
     let n5 = Node::new_native_node(
         "consensus_evaluator".into(),
         None,
         Arc::new(consensus_evaluator),
-        false,
     );
-    let n6 = Node::new_native_node("commit_ledger".into(), None, Arc::new(commit_ledger), false);
-    let n7 = Node::new_native_node(
-        "alert_compliance".into(),
-        None,
-        Arc::new(alert_compliance),
-        false,
-    );
-    let n8 = Node::new_native_node(
-        "finalize_audit".into(),
-        None,
-        Arc::new(finalize_audit),
-        false,
-    );
+    let n6 = Node::new_native_node("commit_ledger".into(), None, Arc::new(commit_ledger));
+    let n7 = Node::new_native_node("alert_compliance".into(), None, Arc::new(alert_compliance));
+    let n8 = Node::new_native_node("finalize_audit".into(), None, Arc::new(finalize_audit));
 
     let edges = vec![
         Edge::new(&n1, &n2, None),

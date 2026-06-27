@@ -21,7 +21,6 @@ pub struct NodeTOML {
     pub description: Option<String>,
     pub script_type: String,
     pub script_path: String,
-    pub is_conditional: bool,
 }
 
 #[derive(Deserialize, Debug)]

@@ -41,7 +41,7 @@ fn receive_order(_input: Value) -> Result<Value, String> {
 // ==========================================
 fn process_payment(input: Value) -> Result<Value, String> {
     // Read the data sent from the "receive_order" node
-    let amount = input["receive_order"]["amount"].as_f64().unwrap_or(0.0);
+    let _amount = input["receive_order"]["amount"].as_f64().unwrap_or(0.0);
     let output = json!({
         "payment_status": "success",
         "transaction_id": "tx_99210"
@@ -54,7 +54,7 @@ fn process_payment(input: Value) -> Result<Value, String> {
 // ==========================================
 fn check_inventory(input: Value) -> Result<Value, String> {
     // Read the data sent from the "receive_order" node
-    let item = input["receive_order"]["item"]
+    let _item = input["receive_order"]["item"]
         .as_str()
         .unwrap_or("Unknown Item");
 
@@ -88,30 +88,20 @@ async fn main() {
     // ---------------------------------------------------------
     // STEP 1: Create the Nodes
     // ---------------------------------------------------------
-    let node_start = Node::new_native_node(
-        "receive_order".to_string(),
-        None,
-        Arc::new(receive_order),
-        false,
-    );
+    let node_start =
+        Node::new_native_node("receive_order".to_string(), None, Arc::new(receive_order));
     let node_pay = Node::new_native_node(
         "process_payment".to_string(),
         None,
         Arc::new(process_payment),
-        false,
     );
     let node_inv = Node::new_native_node(
         "check_inventory".to_string(),
         None,
         Arc::new(check_inventory),
-        false,
     );
-    let node_end = Node::new_native_node(
-        "dispatch_order".to_string(),
-        None,
-        Arc::new(dispatch_order),
-        false,
-    );
+    let node_end =
+        Node::new_native_node("dispatch_order".to_string(), None, Arc::new(dispatch_order));
 
     // ---------------------------------------------------------
     // STEP 2: Wire the Edges

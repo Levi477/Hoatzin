@@ -5,7 +5,6 @@ use crate::node::node::NativeFunction;
 #[derive(Clone)]
 pub enum NodeType {
     Script(ScriptType),
-    Conditional(ScriptType),
 }
 
 // define all possible script type

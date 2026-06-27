@@ -32,67 +32,34 @@ impl Node {
         name: String,
         description: Option<String>,
         native_script: NativeFunction,
-        is_conditional: bool,
     ) -> Self {
-        if is_conditional {
-            Self::new(
-                name,
-                description,
-                NodeType::Conditional(ScriptType::Native(native_script)),
-            )
-        } else {
-            Self::new(
-                name,
-                description,
-                NodeType::Script(ScriptType::Native(native_script)),
-            )
-        }
+        Self::new(
+            name,
+            description,
+            NodeType::Script(ScriptType::Native(native_script)),
+        )
     }
 
-    pub fn new_python_node(
-        name: String,
-        description: Option<String>,
-        script_path: &str,
-        is_conditional: bool,
-    ) -> Self {
-        if is_conditional {
-            Self::new(
-                name,
-                description,
-                NodeType::Conditional(ScriptType::Python(PathBuf::from_str(script_path).unwrap())),
-            )
-        } else {
-            Self::new(
-                name,
-                description,
-                NodeType::Script(ScriptType::Python(PathBuf::from_str(script_path).unwrap())),
-            )
-        }
+    pub fn new_python_node(name: String, description: Option<String>, script_path: &str) -> Self {
+        Self::new(
+            name,
+            description,
+            NodeType::Script(ScriptType::Python(PathBuf::from_str(script_path).unwrap())),
+        )
     }
 
     pub fn new_javascript_node(
         name: String,
         description: Option<String>,
         script_path: &str,
-        is_conditional: bool,
     ) -> Self {
-        if is_conditional {
-            Self::new(
-                name,
-                description,
-                NodeType::Conditional(ScriptType::JavaScript(
-                    PathBuf::from_str(script_path).unwrap(),
-                )),
-            )
-        } else {
-            Self::new(
-                name,
-                description,
-                NodeType::Script(ScriptType::JavaScript(
-                    PathBuf::from_str(script_path).unwrap(),
-                )),
-            )
-        }
+        Self::new(
+            name,
+            description,
+            NodeType::Script(ScriptType::JavaScript(
+                PathBuf::from_str(script_path).unwrap(),
+            )),
+        )
     }
 
     pub async fn execute(&self, input: Value) -> Result<Value, String> {
@@ -163,10 +130,6 @@ except Exception as e:
                     _ => Err("Script Type Not Supported Yet !".to_string()),
                 }
             }
-            // run route function for NodeType Conditional
-            // check for the parameter __route__ in this node's output
-            // compare each edges labels with __route__ and conditional skip other branches
-            NodeType::Conditional(lang) => Err("Conditional Type not yet implemented".to_string()),
         }
     }
 }

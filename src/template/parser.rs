@@ -25,13 +25,11 @@ pub async fn parse_workflow_from_toml(workflow_toml_file: PathBuf) -> Result<Wor
                 node_config.name.clone(),
                 node_config.description,
                 &node_config.script_path,
-                node_config.is_conditional,
             ),
             "JavaScript" => Node::new_javascript_node(
                 node_config.name.clone(),
                 node_config.description,
                 &node_config.script_path,
-                node_config.is_conditional,
             ),
             _ => {
                 return Err(format!(

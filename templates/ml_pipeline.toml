@@ -6,20 +6,16 @@ description = "ML Dataset Acquisition & Training"
 name = "acquire_dataset"
 script_type = "Python"
 script_path = "template-scripts/ml_pipeline/acquire_dataset.py"
-is_conditional = false
 
 [[nodes]]
 name = "preprocess_data"
 script_type = "Python"
 script_path = "template-scripts/ml_pipeline/preprocess_data.py"
-is_conditional = false
-
 
 [[nodes]]
 name = "train_model"
 script_type = "Python"
 script_path = "template-scripts/ml_pipeline/train_model.py"
-is_conditional = false
 
 [[edges]]
 from_node = "acquire_dataset"
