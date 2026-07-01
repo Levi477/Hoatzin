@@ -1,6 +1,6 @@
 # Hoatzin
 
-A workflow execution engine written in Rust. You define a graph of tasks,nodes and edges and Hoatzin figures out the execution order, runs independent tasks in parallel, and passes each node's output downstream as JSON.
+A workflow execution engine written in Rust. You define a graph of tasks, nodes, and edges, and Hoatzin figures out the execution order, runs independent tasks in parallel, and passes each node's output downstream as JSON.
 
 The name is pronounced *hwaat-zin*.
 
@@ -16,82 +16,46 @@ The whole thing is built on `tokio` with a multi-threaded scheduler, so independ
 
 ## What works today
 
-- **Rust native nodes** — wrap any `Fn(Value) -> Result<Value, String>` closure as a node
-- **Python nodes** — point a node at a `.py` file and Hoatzin runs the `main(input)` function inside it (sync and async both work)
-- **Fan-out and fan-in** — a node can feed multiple downstream nodes, and a node can wait for multiple upstream nodes before it runs
-- **JSON context passing** — each node receives a JSON object keyed by the names of its immediate predecessors, containing their outputs
-- **TOML workflow definitions** — describe your entire graph in a `.toml` file without touching Rust code
-- **Parallel workflow loading** — point the CLI at a directory and it picks up every `.toml` file and runs them all concurrently
-- **Free-threaded Python** — uses PyO3 with Python 3.14t to run multiple Python nodes simultaneously without GIL contention
+* **Rust native nodes** — wrap any `Fn(Value) -> Result<Value, String>` closure as a node
+* **Python nodes** — point a node at a `.py` file and Hoatzin runs the `main(input)` function inside it (sync and async both work)
+* **Conditional routing (Switch cases) [NEW]** — nodes can output a `__route__` array to dynamically select which labeled downstream branches execute. Unselected branches are automatically skipped, and that skipped status propagates downstream to dead-end paths. Unlabeled edges act as defaults and execute unconditionally.
+* **Fan-out and fan-in** — a node can feed multiple downstream nodes, and a node can wait for multiple upstream nodes before it runs
+* **JSON context passing** — each node receives a JSON object keyed by the names of its immediate predecessors, containing their outputs
+* **TOML workflow definitions** — describe your entire graph in a `.toml` file without touching Rust code
+* **Parallel workflow loading** — point the CLI at a directory and it picks up every `.toml` file and runs them all concurrently
+* **Free-threaded Python** — uses PyO3 with Python 3.14t to run multiple Python nodes simultaneously without GIL contention
 
 ---
 
 ## What's on the roadmap
 
-- **JavaScript / TypeScript nodes** — the `ScriptType::JavaScript` variant exists in the code but isn't implemented yet; the plan is to embed V8 via `deno_core`
-- **Daemon mode** — right now Hoatzin is a run-once process; the goal is a persistent background daemon with an event loop that can accept webhook and cron triggers
-- **Visual interface** — a web frontend for building workflows with drag-and-drop, watching execution in real-time, and inspecting the JSON state at each step
+* **JavaScript / TypeScript nodes** — the `ScriptType::JavaScript` variant exists in the code but isn't implemented yet; the plan is to embed V8 via `deno_core`
+* **Daemon mode** — right now Hoatzin is a run-once process; the goal is a persistent background daemon with an event loop that can accept webhook and cron triggers
+* **Visual interface** — a web frontend for building workflows with drag-and-drop, watching execution in real-time, and inspecting the JSON state at each step
 
 ---
 
 ## Quick start
 
-### Option A: TOML workflow (recommended)
+### Option A: Native Rust API (With Conditional Routing)
 
-Write a `workflow.toml` file:
+This example demonstrates how to wire up closures directly and use the switch-case routing feature. The router node outputs a `__route__` array to dynamically select whether the standard or high-value branch executes.
 
-```toml
-[workflow]
-name = "E-Commerce Pipeline"
-description = "Workflow Description here"
+Here is the graph we are building:
 
-[[nodes]]
-name = "receive_order"
-script_type = "Python"
-script_path = "scripts/receive_order.py"
-description = "Node Description here"
+```text
+                      [ router ]
+        (Evaluates amount, outputs __route__ = ["HighValue"])
+                     /                  \
+       "Standard"   /                    \   "HighValue"
+                   /                      \
+                  v                        v
+        [ std_processor ]          [ high_processor ]
+            (Skipped)                  (Executes)
 
-[[nodes]]
-name = "process_payment"
-script_type = "Python"
-script_path = "scripts/process_payment.py"
-
-[[nodes]]
-name = "check_inventory"
-script_type = "Python"
-script_path = "scripts/check_inventory.py"
-
-[[nodes]]
-name = "dispatch_order"
-script_type = "Python"
-script_path = "scripts/dispatch_order.py"
-
-[[edges]]
-from_node = "receive_order"
-to_node = "process_payment"
-
-[[edges]]
-from_node = "receive_order"
-to_node = "check_inventory"
-
-[[edges]]
-from_node = "process_payment"
-to_node = "dispatch_order"
-
-[[edges]]
-from_node = "check_inventory"
-to_node = "dispatch_order"
 ```
 
-Run it:
-
-```bash
-hoatzin --workflows ./path/to/toml/dir
-```
-
-### Option B: Native Rust API
-
-Wire up closures directly:
+And here is the code to run it:
 
 ```rust
 use hoatzin::{
@@ -101,154 +65,134 @@ use hoatzin::{
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-fn receive_order(_input: Value) -> Result<Value, String> {
-    Ok(json!({ "order_id": "ORD-7781", "item": "Keyboard", "amount": 150.00 }))
+// 1. Router Node
+fn route_order(_input: Value) -> Result<Value, String> {
+    let amount = 1500.00; // Simulated input data
+    let route = if amount > 1000.0 { "HighValue" } else { "Standard" };
+
+    // The __route__ key instructs the engine which labeled edges to follow
+    Ok(json!({
+        "status": "routed",
+        "__route__": [route]
+    }))
 }
 
-fn process_payment(input: Value) -> Result<Value, String> {
-    let amount = input["receive_order"]["amount"].as_f64().unwrap_or(0.0);
-    println!("Charging ${:.2}", amount);
-    Ok(json!({ "payment_status": "success" }))
+// 2. Branch A
+fn process_standard(_input: Value) -> Result<Value, String> {
+    println!("Processing standard order.");
+    Ok(json!({ "branch": "standard_processed" }))
+}
+
+// 3. Branch B
+fn process_high_value(_input: Value) -> Result<Value, String> {
+    println!("Processing high-value order. Sending to priority queue.");
+    Ok(json!({ "branch": "high_value_processed" }))
 }
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
-    let n1 = Node::new_native_node("receive_order".into(), Some("Node Description".to_string()),Arc::new(receive_order));
-    let n2 = Node::new_native_node("process_payment".into(), None,Arc::new(process_payment));
+    let n_router = Node::new_native_node("router".into(), None, Arc::new(route_order));
+    let n_std = Node::new_native_node("std_processor".into(), None, Arc::new(process_standard));
+    let n_high = Node::new_native_node("high_processor".into(), None, Arc::new(process_high_value));
 
-    let edges = vec![Edge::new(&n1, &n2, None)];
-    let workflow = Workflow::new(vec![n1, n2], edges,"Enter your description here".to_String());
+    // Connect edges with specific labels to enable switch-case routing
+    let e1 = Edge::new(&n_router, &n_std, Some("Standard".into()));
+    let e2 = Edge::new(&n_router, &n_high, Some("HighValue".into()));
+
+    let workflow = Workflow::new(
+        vec![n_router.clone(), n_std.clone(), n_high.clone()],
+        vec![e1, e2],
+        "RoutingWorkflow".into(),
+        "Example of conditional execution".into(),
+    );
 
     let mut ctx = ExecutionContext::new(Arc::new(workflow));
     ctx.run_workflow().await;
+
+    // Because amount > 1000, n_high will succeed and n_std will be marked as Skipped.
 }
+
+```
+
+### Option B: TOML workflow
+
+You can also describe your entire graph in a `.toml` file. Notice how labels can be added to edges to support switch-case routing.
+
+```toml
+[workflow]
+name = "Routing Pipeline"
+description = "Basic routing structure"
+
+[[nodes]]
+name = "router"
+script_type = "Python"
+script_path = "scripts/route_order.py"
+
+[[nodes]]
+name = "std_processor"
+script_type = "Python"
+script_path = "scripts/process_standard.py"
+
+[[nodes]]
+name = "high_processor"
+script_type = "Python"
+script_path = "scripts/process_high_value.py"
+
+[[edges]]
+from_node = "router"
+to_node = "std_processor"
+label = "Standard"
+
+[[edges]]
+from_node = "router"
+to_node = "high_processor"
+label = "HighValue"
+
+```
+
+Run it:
+
+```bash
+hoatzin --workflows ./path/to/toml/dir
+
 ```
 
 ---
 
-## How context passing works
+## Writing Python Nodes
 
-Each node receives a JSON object whose keys are the **names** of its direct predecessors. So if `dispatch_order` sits downstream of both `process_payment` and `check_inventory`, it gets:
+Your script needs a `main` function that accepts one argument (the input dict) and returns something JSON-serializable. Both sync and async are fine.
 
-```json
-{
-  "process_payment": {
-    "payment_status": "success",
-    "transaction_id": "tx_99210"
-  },
-  "check_inventory": {
-    "stock_available": true,
-    "warehouse_zone": "Zone-A"
-  }
-}
-```
+Each node receives a JSON object whose keys are the **names** of its direct predecessors. Trigger nodes (no predecessors) receive an empty object `{}`.
 
-Trigger nodes (no predecessors) receive an empty object `{}`.
-
-In Python, you access it like a regular dict:
+You can also return a `__route__` array from a Python node to act as a switch case for downstream execution, exactly like in the Rust example.
 
 ```python
+# sync example with conditional routing
 def main(input):
+    # Read output from an upstream node
     order = input.get("receive_order", {})
     amount = order.get("amount", 0.0)
-    print(f"Processing payment of ${amount}")
-    return {"payment_status": "success"}
-```
+    
+    print(f"Evaluating order of ${amount}")
+    
+    # Decide which downstream branch should execute
+    selected_path = "ReviewRequired" if amount > 10000 else "AutoApprove"
 
----
+    return {
+        "evaluated_amount": amount,
+        "__route__": [selected_path]
+    }
 
-## Examples
-
-### E-Commerce order pipeline
-
-A classic fan-out / fan-in pattern. The order comes in, payment and inventory checks run in parallel, then dispatch waits for both.
-
-```
-              [ receive_order ]
-                /             \
-               /               \
-              v                 v
-  [ process_payment ]   [ check_inventory ]
-              \                 /
-               \               /
-                v             v
-            [ dispatch_order ]
-```
-
-The full working example is in [`examples/ecommerce.rs`](examples/ecommerce.rs).
-
----
-
-### Financial transaction pipeline
-
-A more involved graph — three independent checks feed a consensus node, which then branches again into ledger commit and compliance alert, before a final audit step collects both results.
-
-```
-              [ init_transfer ]
-            /        |         \
-           v         v          v
-    [ check_kyc ] [ ml_fraud ] [ lock_funds ]
-           \         |         /
-            v        v        v
-        [ consensus_evaluator ]
-              /             \
-             v               v
-    [ commit_ledger ]  [ alert_compliance ]
-             \               /
-              v             v
-           [ finalize_audit ]
-```
-
-`check_kyc`, `ml_fraud`, and `lock_funds` all run at the same time. `consensus_evaluator` waits for all three, reads their outputs, and decides whether the transaction is approved. Depending on that decision, either `commit_ledger` or `alert_compliance` does the real work (the other skips itself gracefully).
-
-The full working example is in [`examples/microservice.rs`](examples/microservice.rs).
-
----
-
-### ML dataset pipeline (TOML)
-
-A linear chain — acquire data, preprocess it, train. Defined entirely in [`templates/ml_pipeline.toml`](templates/ml_pipeline.toml).
-
-```
-[ acquire_dataset ] → [ preprocess_data ] → [ train_model ]
-```
-
----
-
-### Video upscaler pipeline (TOML)
-
-Audio and video are extracted in parallel, frames are upscaled, then everything is merged back together. Defined in [`templates/video_upscaler.toml`](templates/video_upscaler.toml).
-
-```
-[ extract_audio ]          [ extract_frames ]
-       \                          |
-        \                         v
-         \               [ upscale_frames ]
-          \                       /
-           v                     v
-              [ merge_output ]
-```
-
----
-
-## Writing Python nodes
-
-Your script needs a `main` function that accepts one argument (the input dict) and returns something JSON-serializable. Both sync and async are fine:
-
-```python
-# sync
-def main(input):
-    data = input.get("some_upstream_node", {})
-    return {"result": data["value"] * 2}
-
-# async
+# async example
 async def main(input):
     import asyncio
     await asyncio.sleep(0.1)
     return {"done": True}
+
 ```
 
-If your script throws an exception, Hoatzin catches it and passes `{"error": "..."}` as the node's output to any downstream nodes.
+If your script throws an exception, Hoatzin catches it, marks the node as failed, and prevents downstream execution for dependent nodes.
 
 ---
 
