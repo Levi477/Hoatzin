@@ -1,3 +1,5 @@
+// run using cargo run --exmaple ecommerce
+
 use hoatzin::{
     edge::edge::Edge, execution::context::ExecutionContext, node::node::Node,
     workflow::workflow::Workflow,

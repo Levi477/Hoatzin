@@ -2,7 +2,7 @@ use crate::{
     execution::{helper::execute_node, node_output::NodeOutput, node_status::NodeStatus},
     workflow::workflow::Workflow,
 };
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value, from_value, json};
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
@@ -34,28 +34,30 @@ impl ExecutionContext {
         }
     }
 
-    fn make_input_context(&self, front_node_id: &str) -> Value {
+    // it is gurenteed in kahn's algo that all previous nodes are executed before executing this node
+    fn make_input_context(&self, node_id: &str) -> Value {
         // make input context map (later convert to context json object) using reverse adjacency list
         let mut ctx_map = Map::new();
         // for trigger node put input context as empty vector
         // for othe nodes when [node2,node3,node4....] -> node1
         // first concatinate all the outputs of node2,3,4...
-        // as {"nodei":{json output},...}
+        // as {"nodei":{json output of nodei},...}
         // and pass it as the input context to the node1 for execution
 
-        if let Some(incoming_edges) = self.workflow.reverse_adjacency_list.get(front_node_id) {
+        if let Some(incoming_edges) = self.workflow.reverse_adjacency_list.get(node_id) {
             for edge_id in incoming_edges {
                 // Hop through the edge to find the previous Node ID
                 let edge = self.workflow.edges.get(edge_id).unwrap();
                 let prev_node_id = &edge.from_node_id;
                 let prev_node_name = self.workflow.nodes.get(prev_node_id).unwrap().name.clone();
 
-                match &self.node_outputs.get(prev_node_id).unwrap().payload {
-                    Ok(op) => {
-                        ctx_map.insert(prev_node_name, op.clone());
-                    }
-                    Err(er) => {
-                        ctx_map.insert(prev_node_name, json!({"error": er}));
+                // Only include Output of Nodes that have been executed succesfully
+                if let Some(NodeStatus::Success) = &self.node_status.get(prev_node_id) {
+                    match &self.node_outputs.get(prev_node_id).unwrap().payload {
+                        Ok(op) => {
+                            ctx_map.insert(prev_node_name, op.clone());
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -75,15 +77,22 @@ impl ExecutionContext {
         indegree
     }
 
-    fn save_node_output(&mut self, front_node_id: &String, node_op: Result<Value, String>) {
+    fn save_node_output(
+        &mut self,
+        node_id: &String,
+        node_op: Result<Value, String>,
+        route: Option<Vec<String>>,
+    ) {
         self.node_outputs.insert(
-            front_node_id.clone(),
+            node_id.clone(),
             NodeOutput {
                 payload: node_op.clone(),
+                route: route,
             },
         );
     }
 
+    // initialize all node's status to PENDING
     fn init_node_status(&mut self) {
         for node_id in self.workflow.nodes.keys() {
             self.node_status
@@ -114,6 +123,35 @@ impl ExecutionContext {
         while !ready_queue.is_empty() || !join_set.is_empty() {
             // keep executing nodes from queue
             while let Some(front_node_id) = ready_queue.pop_front() {
+                // If the node status is Skipped than update status of all children nodes to skipped
+                if let Some(NodeStatus::Skipped) = self.node_status.get(&front_node_id) {
+                    if let Some(outer_edge_vector) =
+                        self.workflow.adjacency_list.get(&front_node_id)
+                    {
+                        for outer_edge in outer_edge_vector {
+                            let child_node_id = self
+                                .workflow
+                                .edges
+                                .get(outer_edge)
+                                .unwrap()
+                                .to_node_id
+                                .clone();
+
+                            self.node_status
+                                .insert(child_node_id.clone(), NodeStatus::Skipped);
+
+                            // decrease indegree of skipped child nodes by 1
+                            if let Some(count) = indegree.get_mut(&child_node_id) {
+                                *count -= 1;
+                                if *count == 0 {
+                                    ready_queue.push_back(child_node_id.clone());
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
+
                 //prepare input context and node object to be passed
                 let ctx = self.make_input_context(&front_node_id);
                 let node = self.workflow.nodes.get(&front_node_id).unwrap();
@@ -129,23 +167,66 @@ impl ExecutionContext {
             // wait for output for executed nodes
             if let Some(result) = join_set.join_next().await {
                 let (node_id, node_op) = result.unwrap();
+                let mut route: Option<Vec<String>> = None;
 
-                // update status according to node_op
-                if node_op.is_ok() {
+                // update status and save output according to node_op
+                if let Ok(mut output) = node_op {
                     self.node_status
                         .insert(node_id.clone(), NodeStatus::Success);
+
+                    // check if "__route__" key exist in the json output
+                    if output.get("__route__").is_some() {
+                        // if the key exist then extract route array
+                        // and remove that entry from the output
+                        route = output
+                            .as_object_mut()
+                            .and_then(|obj| obj.remove("__route__"))
+                            .and_then(|value| from_value(value).ok());
+
+                        // add node output to the history
+                    }
+                    self.save_node_output(&node_id, Ok(output.clone()), route.clone());
                 } else {
                     self.node_status.insert(node_id.clone(), NodeStatus::Failed);
                 }
 
-                // add node output to the history
-                self.save_node_output(&node_id, node_op);
                 // reduce indegrees of connected nodes
                 if let Some(outgoing_edges) = self.workflow.adjacency_list.get(&node_id) {
                     for edge_id in outgoing_edges {
-                        // Hop through the edge to find the target Node ID
                         let edge = self.workflow.edges.get(edge_id).unwrap();
                         let target_node_id = &edge.to_node_id;
+
+                        // apply branch selection logix iff node succedes
+                        // select all the branches mentioned in route vector
+                        // Also select default branches with None label
+                        // Skip other non-default branches
+                        if let Some(NodeStatus::Success) = self.node_status.get(&node_id) {
+                            // variable to track if the branch label is found in route vector
+                            let mut branch_skipped = false;
+                            match &route {
+                                // if the route vector exist and label is not found then skip it
+                                // if the lable doesn't exist then branch_skipped stays false
+                                Some(branch_vec) => {
+                                    if let Some(label) = &edge.label {
+                                        branch_skipped = !branch_vec.contains(label);
+                                    }
+                                }
+                                // if the route vector is empty and label is not empty then
+                                None => {
+                                    if edge.label.is_some() {
+                                        branch_skipped = true;
+                                    }
+                                }
+                            }
+
+                            // if label doesn't exist then mark it skipped in status
+                            if branch_skipped {
+                                self.node_status
+                                    .insert(target_node_id.clone(), NodeStatus::Skipped);
+                            }
+                        }
+
+                        // decrease indegree's of all child's
                         if let Some(count) = indegree.get_mut(target_node_id) {
                             *count -= 1;
                             if *count == 0 {

@@ -13,9 +13,9 @@ pub struct Workflow {
     pub nodes: HashMap<String, Node>,
     // Map Edge ID to Edge
     pub edges: HashMap<String, Edge>,
-    // Map Node to outgoing Edges
+    // Map Node ID to outgoing Edges ID
     pub adjacency_list: HashMap<String, Vec<String>>,
-    // Map Node to incoming Edges
+    // Map Node ID to incoming Edges ID
     pub reverse_adjacency_list: HashMap<String, Vec<String>>,
 }
 
