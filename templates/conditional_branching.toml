@@ -1,0 +1,53 @@
+#       A'''''''''''''
+#      ' '           '
+#     'b  'c         '
+#    '     '         D
+#     B     C'''''''''
+#     ''''''''''''''''
+#
+
+[workflow]
+name = "conditional branching example"
+description = "example demonstratingb conditional branching capability of Hoatzin"
+
+[[nodes]]
+name = "node-a"
+script_type = "Python"
+script_path = "template-scripts/conditional_branching/node_a.py"
+
+[[nodes]]
+name = "node-b"
+script_type = "Python"
+script_path = "template-scripts/conditional_branching/node_b.py"
+
+[[nodes]]
+name = "node-c"
+script_type = "Python"
+script_path = "template-scripts/conditional_branching/node_c.py"
+
+[[nodes]]
+name = "node-d"
+script_type = "Python"
+script_path = "template-scripts/conditional_branching/node_d.py"
+
+[[edges]]
+from_node = "node-a"
+to_node = "node-b"
+label = "b"
+
+[[edges]]
+from_node = "node-a"
+to_node = "node-c"
+label = "c"
+
+[[edges]]
+from_node = "node-a"
+to_node = "node-d"
+
+[[edges]]
+from_node = "node-b"
+to_node = "node-d"
+
+[[edges]]
+from_node = "node-c"
+to_node = "node-d"

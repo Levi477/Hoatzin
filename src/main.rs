@@ -13,6 +13,7 @@ mod args;
 mod db;
 mod edge;
 mod execution;
+mod execution_observer;
 mod node;
 mod template;
 mod workflow;

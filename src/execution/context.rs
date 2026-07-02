@@ -124,6 +124,7 @@ impl ExecutionContext {
             // keep executing nodes from queue
             while let Some(front_node_id) = ready_queue.pop_front() {
                 // If the node status is Skipped than update status of all children nodes to skipped
+                // before putting all children to skip check if their indegree is 1
                 if let Some(NodeStatus::Skipped) = self.node_status.get(&front_node_id) {
                     if let Some(outer_edge_vector) =
                         self.workflow.adjacency_list.get(&front_node_id)
@@ -137,13 +138,14 @@ impl ExecutionContext {
                                 .to_node_id
                                 .clone();
 
-                            self.node_status
-                                .insert(child_node_id.clone(), NodeStatus::Skipped);
-
-                            // decrease indegree of skipped child nodes by 1
+                            // get the indegree of child node
+                            // if it is 1 then mark it skipped
+                            // decrease indegree of child nodes by 1
                             if let Some(count) = indegree.get_mut(&child_node_id) {
                                 *count -= 1;
                                 if *count == 0 {
+                                    self.node_status
+                                        .insert(child_node_id.clone(), NodeStatus::Skipped);
                                     ready_queue.push_back(child_node_id.clone());
                                 }
                             }
@@ -196,7 +198,7 @@ impl ExecutionContext {
                         let edge = self.workflow.edges.get(edge_id).unwrap();
                         let target_node_id = &edge.to_node_id;
 
-                        // apply branch selection logix iff node succedes
+                        // apply branch selection logic iff node succedes
                         // select all the branches mentioned in route vector
                         // Also select default branches with None label
                         // Skip other non-default branches
